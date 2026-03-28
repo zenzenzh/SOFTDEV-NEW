@@ -1,0 +1,8 @@
+node_modules/
+.expo/
+.web-build/
+dist/
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
