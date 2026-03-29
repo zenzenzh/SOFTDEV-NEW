@@ -876,10 +876,8 @@
 
     if (step === 0) return (
       <View style={styles.onboardWrap}>
-        {/* Animated hero */}
-        <Animated.View style={[styles.onboardGlow, { backgroundColor: glowColor }]} />
-        <View style={styles.onboardLogoWrap}>
-          <Text style={styles.onboardLogoEmoji}>⚔️</Text>
+        <View style={[styles.onboardLogoWrap, { justifyContent: "center", alignItems: "center" }]}> 
+          <Image source={require("./assets/fitlogo.png")} style={{ width: 200, height: 200, marginBottom: 10 }} resizeMode="contain" />
           <Text style={styles.onboardLogoTitle}>FITQUEST</Text>
           <Text style={styles.onboardLogoSub}>GAMIFIED FITNESS · IT STUDENTS</Text>
         </View>
