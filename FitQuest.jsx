@@ -18,6 +18,7 @@
     View,
     Modal,
   } from "react-native";
+  import { Asset } from "expo-asset";
   // expo-av Video used only on native; on web we fall back to HTML5 video via ExerciseMedia
   let NativeVideo = null;
   try { NativeVideo = require("expo-av").Video; } catch (_) {}
@@ -53,6 +54,10 @@
       iconUri: require("./assets/weightlifting.png"),
     },
   ];
+
+  const DASHBOARD_BG_SOURCE = require("./assets/gym-bg.png");
+  const DAY_SELECT_BG_SOURCE = require("./assets/dates-bg.png");
+  const WORKOUT_BG_SOURCE = require("./assets/workout-bg.png");
 
   const EXERCISES = [
     {
@@ -998,9 +1003,10 @@
     return (
       <View style={styles.dashboardBackgroundWrap}>
         <Image
-          source={require("./assets/gym-bg.png")}
+          source={DASHBOARD_BG_SOURCE}
           style={[styles.dashboardBgImage, { width: windowWidth, height: windowHeight }]}
           resizeMode="cover"
+          fadeDuration={0}
           pointerEvents="none"
         />
         <View style={[styles.dashboardBgOverlay, { width: windowWidth, height: windowHeight }]} pointerEvents="none" />
@@ -1091,6 +1097,7 @@
   // ─── DaySelectionScreen ───────────────────────────────────────────────────────
 
   function DaySelectionScreen({ profile, stats, workoutPlan, setWorkoutPlan, onBack, onContinue }) {
+    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
     const totalDays = getProgramDays(profile.programDays);
     const completedDays = stats.completedDays || [];
     const unlockedDay = getNextUnlockedDay(completedDays, totalDays);
@@ -1117,6 +1124,33 @@
     }), [totalDays, unlockedDay, completedDays, selectedDay, userLevel, stats.exerciseHistory, workoutPlan.topicKey, tomorrowLocked]);
 
     const completionPercent = Math.round((completedDays.length / totalDays) * 100);
+    const topFlyX = useRef(new Animated.Value(-36)).current;
+    const topFlyY = useRef(new Animated.Value(-12)).current;
+    const topOpacity = useRef(new Animated.Value(0)).current;
+    const daysSlideY = useRef(new Animated.Value(56)).current;
+    const daysOpacity = useRef(new Animated.Value(0)).current;
+    const daysStaggerProgress = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      topFlyX.setValue(-36);
+      topFlyY.setValue(-12);
+      topOpacity.setValue(0);
+      daysSlideY.setValue(56);
+      daysOpacity.setValue(0);
+      daysStaggerProgress.setValue(0);
+
+      Animated.parallel([
+        Animated.timing(topFlyX, { toValue: 0, duration: 430, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(topFlyY, { toValue: 0, duration: 430, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(topOpacity, { toValue: 1, duration: 360, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      ]).start();
+
+      Animated.parallel([
+        Animated.timing(daysSlideY, { toValue: 0, duration: 480, delay: 170, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(daysOpacity, { toValue: 1, duration: 380, delay: 170, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(daysStaggerProgress, { toValue: 1, duration: 900, delay: 170, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+    }, []);
 
     useEffect(() => {
       if (!workoutPlan.dayNumber || workoutPlan.dayNumber > unlockedDay || workoutPlan.dayNumber < 1) {
@@ -1125,29 +1159,54 @@
     }, [workoutPlan.dayNumber, unlockedDay, setWorkoutPlan]);
 
     return (
-      <AppScroll>
-        <Pressable onPress={onBack} style={styles.dayTopBackButton}>
-          <Text style={styles.dayTopBackButtonText}>{"<"}</Text>
-        </Pressable>
+      <View style={styles.daySelectBackgroundWrap}>
+        <Image
+          source={DAY_SELECT_BG_SOURCE}
+          style={[styles.daySelectBgImage, { width: windowWidth, height: windowHeight }]}
+          resizeMode="cover"
+          fadeDuration={0}
+          pointerEvents="none"
+        />
+        <View style={[styles.daySelectBgOverlay, { width: windowWidth, height: windowHeight }]} pointerEvents="none" />
+        <AppScroll>
+          <Animated.View style={{ opacity: topOpacity, transform: [{ translateX: topFlyX }, { translateY: topFlyY }] }}>
+            <Pressable onPress={onBack} style={styles.dayTopBackButton}>
+              <Text style={styles.dayTopBackButtonText}>{"<"}</Text>
+            </Pressable>
 
-        <Text style={styles.dayPlanOverline}>{`${totalDays}-DAY`}</Text>
-        <Text style={styles.dayPlanTitle}>FULL BODY FITQUEST</Text>
-        <Text style={styles.dayPlanSubtitle}>Scroll through your day cards. Future days stay locked until earlier days are completed.</Text>
+            <Text style={styles.dayPlanOverline}>{`${totalDays}-DAY`}</Text>
+            <Text style={styles.dayPlanTitle}>FULL BODY FITQUEST</Text>
+            <Text style={styles.dayPlanSubtitle}>Scroll through your day cards. Future days stay locked until earlier days are completed.</Text>
 
-        <View style={styles.dayBannerCard}>
-          <Text style={styles.dayBannerEyebrow}>Progressive Training</Text>
-          <Text style={styles.dayBannerTitle}>{`${completionPercent}% COMPLETE`}</Text>
-          <Text style={styles.dayBannerMeta}>{`Current pick: Day ${selectedDay} • ${DIFFICULTY_LABELS[previewDifficulty]} • Unlocked up to Day ${unlockedDay}`}</Text>
-        </View>
+            <View style={styles.dayBannerCard}>
+              <Text style={styles.dayBannerEyebrow}>Progressive Training</Text>
+              <Text style={styles.dayBannerTitle}>{`${completionPercent}% COMPLETE`}</Text>
+              <Text style={styles.dayBannerMeta}>{`Current pick: Day ${selectedDay} • ${DIFFICULTY_LABELS[previewDifficulty]} • Unlocked up to Day ${unlockedDay}`}</Text>
+            </View>
 
-        <Text style={styles.dayStageTitle}>Stage 1: Ignite The Burn</Text>
+            <Text style={styles.dayStageTitle}>Stage 1: Ignite The Burn</Text>
+          </Animated.View>
 
-        <View style={styles.dayTimelineWrap}>
+          <Animated.View style={[styles.dayTimelineWrap, { opacity: daysOpacity, transform: [{ translateY: daysSlideY }] }]}>
           {dayEntries.map((entry, index) => {
             const isLast = index === dayEntries.length - 1;
             const statusText = entry.locked ? (entry.lockedToday ? "🌙 Tomorrow" : "🔒 Locked") : entry.completed ? "✓ Finished" : entry.active ? "▶ Selected" : "Open";
+            const staggerIndex = Math.min(index, 16);
+            const rowStart = staggerIndex * 0.045;
+            const rowEnd = Math.min(1, rowStart + 0.24);
+            const rowTranslateY = daysStaggerProgress.interpolate({
+              inputRange: [0, rowStart, rowEnd, 1],
+              outputRange: [22, 22, 0, 0],
+              extrapolate: "clamp",
+            });
+            const rowOpacity = daysStaggerProgress.interpolate({
+              inputRange: [0, rowStart, rowEnd, 1],
+              outputRange: [0, 0, 1, 1],
+              extrapolate: "clamp",
+            });
             return (
-              <View key={`day-${entry.dayNumber}`} style={styles.dayTimelineRow}>
+              <Animated.View key={`day-${entry.dayNumber}`} style={{ opacity: rowOpacity, transform: [{ translateY: rowTranslateY }] }}>
+              <View style={styles.dayTimelineRow}>
                 <View style={styles.dayRailColumn}>
                   {index > 0 ? <View style={styles.dayRailLine} /> : <View style={styles.dayRailSpacer} />}
                   <View style={[styles.dayRailDot, entry.completed ? styles.dayRailDotCompleted : null, entry.active ? styles.dayRailDotActive : null, entry.locked ? styles.dayRailDotLocked : null]} />
@@ -1175,10 +1234,12 @@
                   ) : null}
                 </Pressable>
               </View>
+              </Animated.View>
             );
           })}
-        </View>
-      </AppScroll>
+          </Animated.View>
+        </AppScroll>
+      </View>
     );
   }
 
@@ -1236,7 +1297,7 @@
 
     return (
       <View style={styles.workoutSelectScreen} {...panResponder.panHandlers}>
-        <Image source={require("./assets/workout-bg.png")} style={[styles.workoutSelectBg, { width: windowWidth, height: windowHeight }]} resizeMode="cover" />
+        <Image source={WORKOUT_BG_SOURCE} style={[styles.workoutSelectBg, { width: windowWidth, height: windowHeight }]} resizeMode="cover" fadeDuration={0} />
         <View style={[styles.workoutSelectOverlay, { width: windowWidth, height: windowHeight }]} />
         <Pressable onPress={onBack} style={styles.workoutTopBackButton}>
           <Text style={styles.workoutTopBackButtonText}>{"<"}</Text>
@@ -1872,6 +1933,12 @@ function ProgressScreen({ stats, onBack }) {
 
     const [sessionResult, setSessionResult] = useState(null);
     const [summary, setSummary] = useState(null);
+
+    useEffect(() => {
+      [DASHBOARD_BG_SOURCE, DAY_SELECT_BG_SOURCE, WORKOUT_BG_SOURCE].forEach((source) => {
+        Asset.fromModule(source).downloadAsync().catch(() => {});
+      });
+    }, []);
 
     function handlePlayerStart() {
       if (!profile.displayName.trim() || profile.displayName.trim().length < 2) {
@@ -3070,6 +3137,9 @@ function ProgressScreen({ stats, onBack }) {
     streakLabel: { color: "#f08a4b", fontSize: 10, fontWeight: "600" },
 
     // ─── DAY SELECTION ────────────────────────────────────────────────────────────
+    daySelectBackgroundWrap: { flex: 1 },
+    daySelectBgImage: { ...StyleSheet.absoluteFillObject },
+    daySelectBgOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(6, 18, 27, 0.72)" },
     dayTopBackButton: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.panel, borderWidth: 1, borderColor: COLORS.border, marginBottom: 10 },
     dayTopBackButtonText: { color: COLORS.text, fontSize: 22, fontWeight: "900" },
     dayPlanOverline: { color: COLORS.textMuted, fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: "700" },
