@@ -1,3 +1,26 @@
+  // ─── TipModal Component ────────────────────────────────────────────────
+  import { Video } from 'expo-av';
+
+  function TipModal({ visible, onClose, tipImage, tipText }) {
+    return (
+      <Modal visible={visible} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#18202b', borderRadius: 18, padding: 24, alignItems: 'center', width: 320, maxWidth: '90%' }}>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 12 }}>Tip!</Text>
+            <Image
+              source={tipImage}
+              style={{ width: 220, height: 140, borderRadius: 12, backgroundColor: '#222', marginBottom: 16 }}
+              resizeMode="contain"
+            />
+            <Text style={{ color: '#fff', fontSize: 15, textAlign: 'center', marginBottom: 18 }}>{tipText}</Text>
+            <Pressable onPress={onClose} style={{ backgroundColor: '#3b36d1', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32 }}>
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Okay!</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
   import React, { useEffect, useMemo, useRef, useState } from "react";
   import AsyncStorage from '@react-native-async-storage/async-storage';
   // ─── Local Progress Helpers ────────────────────────────────────────────────
@@ -95,6 +118,8 @@
       mediaSource: require("./assets/workouts/cardio/jumpingjacks-alpha.webm"),
       fallbackSource: require("./assets/workouts/cardio/jumpingjacks.mp4"),
       description: "Jump feet out while raising arms overhead, then return to start.",
+      tipImage: require("./assets/Images/PushupsTip.png"),
+      tipText: "Keep your body straight while raising and lowering your arms and jumping your feet out and in.",
     },
     {
       id: "high-knees",
@@ -105,6 +130,8 @@
       mediaSource: require("./assets/workouts/cardio/highknees.mp4"),
       fallbackSource: require("./assets/workouts/cardio/highknees.mp4"),
       description: "Run in place and lift knees toward your chest quickly.",
+      tipImage: require("..."),
+      tipText: "Stand tall, engage your core, and drive your knees up to waist level as you run in place.",
     },
     {
       id: "squats",
@@ -1468,6 +1495,7 @@
     const prefersMp4 = Platform.OS === "android";
     const selectedExercises = useMemo(() => workoutPlan.exerciseIds.map((id) => EXERCISES.find((e) => e.id === id)).filter(Boolean), [workoutPlan.exerciseIds]);
     const [session, setSession] = useState(() => ({ exerciseIndex: 0, remainingSec: selectedExercises[0]?.durationSec || 0, paused: false, elapsedSec: 0, calories: 0, completed: 0, finished: false }));
+    const [showTip, setShowTip] = useState(true);
     const [mediaFailed, setMediaFailed] = useState(false);
     const [useFallbackSource, setUseFallbackSource] = useState(prefersMp4);
     const finishSentRef = useRef(false);
@@ -1481,10 +1509,11 @@
       setMediaFailed(false);
       setUseFallbackSource(prefersMp4);
       setSession({ exerciseIndex: 0, remainingSec: selectedExercises[0]?.durationSec || 0, paused: false, elapsedSec: 0, calories: 0, completed: 0, finished: false });
+      setShowTip(true);
     }, [selectedExercises, prefersMp4]);
 
     useEffect(() => {
-      if (!selectedExercises.length || session.finished) return undefined;
+      if (!selectedExercises.length || session.finished || showTip) return undefined;
       const timer = setInterval(() => {
         setSession((prev) => {
           if (prev.paused || prev.finished) return prev;
@@ -1498,7 +1527,7 @@
         });
       }, 1000);
       return () => clearInterval(timer);
-    }, [selectedExercises, session.finished]);
+    }, [selectedExercises, session.finished, showTip]);
 
     useEffect(() => {
       if (!session.finished || finishSentRef.current) return;
@@ -1520,6 +1549,7 @@
         if (prev.finished) return prev;
         const nextIndex = prev.exerciseIndex + 1;
         if (nextIndex >= selectedExercises.length) return { ...prev, exerciseIndex: nextIndex, remainingSec: 0, completed: prev.completed + 1, finished: true };
+        setShowTip(true); // Show tip for next exercise
         return { ...prev, exerciseIndex: nextIndex, remainingSec: selectedExercises[nextIndex].durationSec, completed: prev.completed + 1 };
       });
     }
@@ -1529,38 +1559,46 @@
     }
 
     return (
-      <AppScroll>
-        <Text style={styles.screenTitle}>Active Session</Text>
-        <Text style={styles.screenSubtitle}>Exercise card with timer and controls for play, pause, and skip.</Text>
-        <View style={styles.sessionMetaRow}>
-          <Text style={styles.metaBadge}>{`Progress ${progress}%`}</Text>
-          <Text style={styles.metaBadge}>{`Time ${formatTime(session.elapsedSec)}`}</Text>
-          <Text style={styles.metaBadge}>{`Calories ${Math.round(session.calories)}`}</Text>
-        </View>
-        <View style={styles.sessionCard}>
-          <Text style={styles.sessionExerciseTitle}>{current?.name || "Exercise"}</Text>
-          <Text style={styles.sessionExerciseSubtitle}>{current?.description || ""}</Text>
-          {mediaSource && !mediaFailed ? (
-            <ExerciseMedia
-              source={mediaSource}
-              fallbackSource={current?.fallbackSource}
-              style={[styles.exerciseMedia, current?.id === "jumping-jacks" ? styles.exerciseMediaJumpingJacks : null, current?.id === "mountain-climbers" ? styles.exerciseMediaMountainClimbers : null]}
-              onError={() => setMediaFailed(true)}
-            />
-          ) : (
-            <View style={styles.mediaFallback}><Text style={styles.mediaFallbackText}>Exercise media unavailable</Text></View>
-          )}
-          <View style={styles.timerWrap}>
-            <Text style={styles.timerValue}>{session.remainingSec}</Text>
-            <Text style={styles.timerLabel}>seconds remaining</Text>
+      <>
+        <TipModal
+          visible={showTip && !!current}
+          onClose={() => setShowTip(false)}
+          tipImage={current?.tipImage}
+          tipText={current?.tipText}
+        />
+        <AppScroll>
+          <Text style={styles.screenTitle}>Active Session</Text>
+          <Text style={styles.screenSubtitle}>Exercise card with timer and controls for play, pause, and skip.</Text>
+          <View style={styles.sessionMetaRow}>
+            <Text style={styles.metaBadge}>{`Progress ${progress}%`}</Text>
+            <Text style={styles.metaBadge}>{`Time ${formatTime(session.elapsedSec)}`}</Text>
+            <Text style={styles.metaBadge}>{`Calories ${Math.round(session.calories)}`}</Text>
           </View>
-          <View style={styles.controlRow}>
-            <PrimaryButton label={session.paused ? "Play" : "Pause"} onPress={togglePause} style={styles.controlButton} />
-            <PrimaryButton label="Skip" onPress={skipExercise} style={styles.controlButton} />
-            <PrimaryButton label="Stop" onPress={onCancel} style={styles.controlButtonDanger} textStyle={styles.controlButtonDangerText} />
+          <View style={styles.sessionCard}>
+            <Text style={styles.sessionExerciseTitle}>{current?.name || "Exercise"}</Text>
+            <Text style={styles.sessionExerciseSubtitle}>{current?.description || ""}</Text>
+            {mediaSource && !mediaFailed ? (
+              <ExerciseMedia
+                source={mediaSource}
+                fallbackSource={current?.fallbackSource}
+                style={[styles.exerciseMedia, current?.id === "jumping-jacks" ? styles.exerciseMediaJumpingJacks : null, current?.id === "mountain-climbers" ? styles.exerciseMediaMountainClimbers : null]}
+                onError={() => setMediaFailed(true)}
+              />
+            ) : (
+              <View style={styles.mediaFallback}><Text style={styles.mediaFallbackText}>Exercise media unavailable</Text></View>
+            )}
+            <View style={styles.timerWrap}>
+              <Text style={styles.timerValue}>{session.remainingSec}</Text>
+              <Text style={styles.timerLabel}>seconds remaining</Text>
+            </View>
+            <View style={styles.controlRow}>
+              <PrimaryButton label={session.paused ? "Play" : "Pause"} onPress={togglePause} style={styles.controlButton} />
+              <PrimaryButton label="Skip" onPress={skipExercise} style={styles.controlButton} />
+              <PrimaryButton label="Stop" onPress={onCancel} style={styles.controlButtonDanger} textStyle={styles.controlButtonDangerText} />
+            </View>
           </View>
-        </View>
-      </AppScroll>
+        </AppScroll>
+      </>
     );
   }
 
