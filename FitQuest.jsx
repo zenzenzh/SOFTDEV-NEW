@@ -81,8 +81,8 @@
     },
   ];
 
-  const DASHBOARD_BG_SOURCE = require("./assets/gym-bg.png");
-  const DAY_SELECT_BG_SOURCE = require("./assets/dates-bg.png");
+  const DASHBOARD_BG_SOURCE = require("./assets/gym-bgg.png");
+  const DAY_SELECT_BG_SOURCE = require("./assets/dates-bgg.png");
   const WORKOUT_BG_SOURCE = require("./assets/workout-bg.png");
 
   const EXERCISES = [
