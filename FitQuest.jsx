@@ -1,4 +1,30 @@
   import React, { useEffect, useMemo, useRef, useState } from "react";
+  import AsyncStorage from '@react-native-async-storage/async-storage';
+  // ─── Local Progress Helpers ────────────────────────────────────────────────
+
+  const PROGRESS_KEY = 'fitquest-progress';
+
+  // Save progress object to device
+  async function saveLocalProgress(progress) {
+    try {
+      await AsyncStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+    } catch (e) {
+      // Optionally handle error
+      console.warn('Failed to save progress', e);
+    }
+  }
+
+  // Load progress object from device
+  async function loadLocalProgress() {
+    try {
+      const saved = await AsyncStorage.getItem(PROGRESS_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      // Optionally handle error
+      console.warn('Failed to load progress', e);
+      return null;
+    }
+  }
   import {
     ActivityIndicator,
     Alert,
@@ -923,7 +949,12 @@
         {GOAL_OPTIONS.map((goal) => {
           const active = profile.goal === goal.id;
           return (
-            <Pressable key={goal.id} onPress={() => setProfile((p) => ({ ...p, goal: goal.id }))} style={[styles.goalBigCard, active ? styles.goalBigCardActive : null]}>
+            <Pressable
+              key={goal.id}
+              onPress={() => !isLoading && setProfile((p) => ({ ...p, goal: goal.id }))}
+              disabled={isLoading}
+              style={[styles.goalBigCard, active ? styles.goalBigCardActive : null, isLoading && { opacity: 0.5 }]}
+            >
               <Text style={styles.goalBigIcon}>{GOAL_ICONS[goal.id]}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.goalBigLabel, active ? { color: COLORS.primaryLight } : null]}>{goal.label}</Text>
@@ -934,7 +965,7 @@
           );
         })}
 
-        <View style={[styles.panel, { marginTop: 12 }]}>
+        <View style={[styles.panel, { marginTop: 12, opacity: isLoading ? 0.5 : 1 }]}> 
           <Text style={styles.inputLabel}>COMMITMENT (days)</Text>
           <TextInput
             value={profile.programDays}
@@ -944,6 +975,8 @@
             placeholderTextColor={COLORS.textMuted}
             style={styles.input}
             maxLength={3}
+            editable={!isLoading}
+            selectTextOnFocus={!isLoading}
           />
           <Text style={styles.sectionSubtitle}>Days 1–365. Each completed day unlocks the next.</Text>
         </View>
@@ -1885,12 +1918,14 @@ function ProgressScreen({ stats, onBack }) {
   // ─── Main App ─────────────────────────────────────────────────────────────────
 
   export default function FitQuestApp() {
+
     const [route, setRoute] = useState("player_setup");
     const [armoryVisible, setArmoryVisible] = useState(false);
     const [inventory, setInventory] = useState({ items: {} });
     const [character, setCharacter] = useState(INITIAL_CHARACTER);
 
-    const [profile, setProfile] = useState({
+    // Default values
+    const defaultProfile = {
       displayName: "",
       age: "",
       gender: "",
@@ -1900,25 +1935,48 @@ function ProgressScreen({ stats, onBack }) {
       knowledgeLevel: "",
       programDays: "30",
       accentColor: null,
-    });
-
-    const [stats, setStats] = useState({
+    };
+    const defaultStats = {
       points: 0,
       totalWorkouts: 0,
       totalExercises: 0,
       quizCorrect: 0,
       quizAnswered: 0,
       completedDays: [],
-      dayCompletionDates: {},   // { [dayNumber]: "YYYY-MM-DD" }
+      dayCompletionDates: {},
       exerciseHistory: {},
-      workoutTypeHistory: {},   // { cardio: N, weightlifting: N }
+      workoutTypeHistory: {},
       currentStreak: 0,
       longestStreak: 0,
       lastWorkoutDate: null,
       unlockedAchievements: [],
       totalCalories: 0,
       today: { steps: 0, calories: 0, activeMinutes: 0 },
-    });
+    };
+
+    const [profile, setProfile] = useState(defaultProfile);
+    const [stats, setStats] = useState(defaultStats);
+
+
+    // Load local progress on mount and skip onboarding if username and goal exist
+    useEffect(() => {
+      (async () => {
+        const saved = await loadLocalProgress();
+        if (saved) {
+          if (saved.profile) setProfile((p) => ({ ...p, ...saved.profile }));
+          if (saved.stats) setStats((s) => ({ ...s, ...saved.stats }));
+          // If username and goal exist, skip onboarding
+          if (saved.profile && saved.profile.displayName && saved.profile.goal) {
+            setRoute("dashboard");
+          }
+        }
+      })();
+    }, []);
+
+    // Save local progress when profile or stats change
+    useEffect(() => {
+      saveLocalProgress({ profile, stats });
+    }, [profile, stats]);
 
     const [workoutPlan, setWorkoutPlan] = useState({
       dayNumber: 1,
